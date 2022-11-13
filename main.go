@@ -25,12 +25,10 @@ func main() {
 	defer cancel()
 
 	p := &peer{
-		id:            ownPort,
-		index:         int32(arg1),
-		amountOfPings: make(map[int32]int32),
-		clients:       make(map[int32]token.ExclusionClient),
-		ctx:           ctx,
-		token:         false,
+		id:      ownPort,
+		clients: make(map[int32]token.ExclusionClient),
+		ctx:     ctx,
+		token:   false,
 	}
 
 	//Seeding random generator, since we got the same random results before we did this. Also making sure first node starts with token.
@@ -91,16 +89,16 @@ func main() {
 
 type peer struct {
 	token.UnimplementedExclusionServer
-	id            int32
-	index         int32
-	amountOfPings map[int32]int32
-	clients       map[int32]token.ExclusionClient
-	ctx           context.Context
-	token         bool
-	hasWorkToDo   bool
-	random        int32
+	id          int32
+	clients     map[int32]token.ExclusionClient
+	ctx         context.Context
+	token       bool
+	hasWorkToDo bool
+	random      int32
 }
 
+// Function checks whether the node has the token, and if so if the node has work to do in the
+// critical section.
 func (p *peer) hasToken() {
 	for {
 		if p.token {
@@ -121,8 +119,6 @@ func (p *peer) hasToken() {
 
 			time.Sleep(1 * time.Second)
 			p.sendTokenToNext(indextouse)
-			//emptybox := token.Empty{}
-			//p.clients[int32(indextouse)].GiveToken(p.ctx, &emptybox)
 		}
 
 	}
@@ -143,6 +139,7 @@ func (p *peer) GiveToken(context.Context, *token.Empty) (*token.Empty, error) {
 	return emptybox, nil
 }
 
+// Function just sets p.random to a random number every second. If p.random is 1, it has work to do.
 func (p *peer) calculateIfWorkToDo() {
 	for {
 		switch p.random {
@@ -157,6 +154,7 @@ func (p *peer) calculateIfWorkToDo() {
 	}
 }
 
+// Function writes to file CriticalSection.txt
 func (p *peer) writeToCriticalSection(toWrite string) {
 	f, err := os.OpenFile("CriticalSection.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	_ = err
