@@ -16,22 +16,25 @@ import (
 )
 
 func main() {
+	f, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	log.SetOutput(f)
+
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
 	ownPort := int32(arg1) + 5000
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	p := &peer{
-		id:            ownPort,
-		index:         int32(arg1),
-		amountOfPings: make(map[int32]int32),
-		clients:       make(map[int32]token.PingClient),
-		ctx:           ctx,
-		token:         false,
+		id:      ownPort,
+		clients: make(map[int32]token.ExclusionClient),
+		ctx:     ctx,
+		token:   false,
 	}
+
+	//Seeding random generator, since we got the same random results before we did this. Also making sure first node starts with token.
 	if p.id == 5000 {
 		p.token = true
-		p.random = 1
+		p.random = 4
 	} else if p.id == 5001 {
 		p.random = 2
 	} else if p.id == 5002 {
@@ -44,7 +47,7 @@ func main() {
 		log.Fatalf("Failed to listen on port: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	token.RegisterPingServer(grpcServer, p)
+	token.RegisterExclusionServer(grpcServer, p)
 
 	go func() {
 		if err := grpcServer.Serve(list); err != nil {
@@ -66,11 +69,12 @@ func main() {
 			log.Fatalf("Could not connect: %s", err)
 		}
 		defer conn.Close()
-		c := token.NewPingClient(conn)
+		c := token.NewExclusionClient(conn)
 		p.clients[port] = c
 	}
 	rand.Seed(int64(p.random))
 	go p.hasToken()
+	go p.calculateIfWorkToDo()
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 
@@ -84,22 +88,40 @@ func main() {
 }
 
 type peer struct {
-	token.UnimplementedPingServer
-	id            int32
-	index         int32
-	amountOfPings map[int32]int32
-	clients       map[int32]token.PingClient
-	ctx           context.Context
-	token         bool
-	random        int32
+	token.UnimplementedExclusionServer
+	id          int32
+	clients     map[int32]token.ExclusionClient
+	ctx         context.Context
+	token       bool
+	hasWorkToDo bool
+	random      int32
 }
 
-func (p *peer) Ping(ctx context.Context, req *token.Request) (*token.Reply, error) {
-	id := req.Id
-	p.amountOfPings[id] += 1
+// Function checks whether the node has the token, and if so if the node has work to do in the
+// critical section.
+func (p *peer) hasToken() {
+	for {
+		if p.token {
+			indextouse := int(p.id) + 1
+			if indextouse == 5003 {
+				indextouse = 5000
+			}
+			if p.hasWorkToDo {
+				log.Printf("Node #%d has the token and wishes to work on critical section\n", p.id)
+				time.Sleep(3 * time.Second)
+				p.writeToCriticalSection("writing to critical section.")
+				p.hasWorkToDo = false
+				log.Printf("Node #%d has finished their work on critical section and is sending token to node #%d\n", p.id, indextouse)
 
-	rep := &token.Reply{Amount: p.amountOfPings[id]}
-	return rep, nil
+			} else {
+				log.Printf("Node #%d has the token\n", p.id)
+			}
+
+			time.Sleep(1 * time.Second)
+			p.sendTokenToNext(indextouse)
+		}
+
+	}
 }
 
 func (p *peer) sendTokenToNext(index int) {
@@ -111,38 +133,37 @@ func (p *peer) sendTokenToNext(index int) {
 
 }
 
-func (p *peer) hasToken() {
-	for {
-		if p.token {
-			p.random = rand.Int31n(6)
-			indextouse := int(p.id) + 1
-			if indextouse == 5003 {
-				indextouse = 5000
-			}
-			if p.random == 1 {
-				fmt.Printf("Node #%d has the token and wishes to work on critical section", p.id)
-				fmt.Println()
-				time.Sleep(3 * time.Second)
-				fmt.Printf("Node #%d has finished their work on critical section and is sending token to node #%d", p.id, indextouse)
-				fmt.Println()
-
-			} else {
-				fmt.Printf("Node #%d has the token", p.id)
-				fmt.Println()
-
-			}
-
-			time.Sleep(1 * time.Second)
-			p.sendTokenToNext(indextouse)
-			//emptybox := token.Empty{}
-			//p.clients[int32(indextouse)].GiveToken(p.ctx, &emptybox)
-		}
-
-	}
-}
-
 func (p *peer) GiveToken(context.Context, *token.Empty) (*token.Empty, error) {
 	p.token = true
 	emptybox := &token.Empty{}
 	return emptybox, nil
+}
+
+// Function just sets p.random to a random number every second. If p.random is 1, it has work to do.
+func (p *peer) calculateIfWorkToDo() {
+	for {
+		switch p.random {
+		case 1:
+			p.hasWorkToDo = true
+			p.random = rand.Int31n(12)
+			time.Sleep(1 * time.Second)
+		default:
+			p.random = rand.Int31n(12)
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+// Function writes to file CriticalSection.txt
+func (p *peer) writeToCriticalSection(toWrite string) {
+	f, err := os.OpenFile("CriticalSection.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	_ = err
+	log.SetOutput(f)
+
+	log.Println("Node #", p.id, " ", toWrite)
+
+	s, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	_ = err
+	log.SetOutput(s)
+
 }

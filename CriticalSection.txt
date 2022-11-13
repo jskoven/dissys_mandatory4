@@ -1,0 +1,17 @@
+2022/11/13 16:13:05 Node # 5000   writing to critical section.
+2022/11/13 16:13:11 Node # 5000   writing to critical section.
+2022/11/13 16:13:24 Node # 5001   writing to critical section.
+2022/11/13 16:13:28 Node # 5002   writing to critical section.
+2022/11/13 16:13:32 Node # 5000   writing to critical section.
+2022/11/13 16:13:40 Node # 5002   writing to critical section.
+2022/11/13 16:13:44 Node # 5000   writing to critical section.
+2022/11/13 16:13:48 Node # 5001   writing to critical section.
+2022/11/13 16:13:52 Node # 5002   writing to critical section.
+2022/11/13 16:13:56 Node # 5000   writing to critical section.
+2022/11/13 16:14:00 Node # 5001   writing to critical section.
+2022/11/13 16:14:09 Node # 5001   writing to critical section.
+2022/11/13 16:14:14 Node # 5000   writing to critical section.
+2022/11/13 16:14:19 Node # 5002   writing to critical section.
+2022/11/13 16:14:25 Node # 5001   writing to critical section.
+2022/11/13 16:14:45 Node # 5000   writing to critical section.
+2022/11/13 16:14:52 Node # 5001   writing to critical section.
