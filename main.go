@@ -16,6 +16,8 @@ import (
 )
 
 func main() {
+	f, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	log.SetOutput(f)
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
 	ownPort := int32(arg1) + 5000
 	ctx, cancel := context.WithCancel(context.Background())
@@ -31,7 +33,7 @@ func main() {
 	}
 	if p.id == 5000 {
 		p.token = true
-		p.random = 1
+		p.random = 4
 	} else if p.id == 5001 {
 		p.random = 2
 	} else if p.id == 5002 {
@@ -71,6 +73,7 @@ func main() {
 	}
 	rand.Seed(int64(p.random))
 	go p.hasToken()
+	go p.calculateIfWorkToDo()
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 
@@ -91,45 +94,26 @@ type peer struct {
 	clients       map[int32]token.PingClient
 	ctx           context.Context
 	token         bool
+	hasWorkToDo   bool
 	random        int32
-}
-
-func (p *peer) Ping(ctx context.Context, req *token.Request) (*token.Reply, error) {
-	id := req.Id
-	p.amountOfPings[id] += 1
-
-	rep := &token.Reply{Amount: p.amountOfPings[id]}
-	return rep, nil
-}
-
-func (p *peer) sendTokenToNext(index int) {
-	if p.token {
-		emptybox := token.Empty{}
-		p.clients[int32(index)].GiveToken(p.ctx, &emptybox)
-		p.token = false
-	}
-
 }
 
 func (p *peer) hasToken() {
 	for {
 		if p.token {
-			p.random = rand.Int31n(6)
 			indextouse := int(p.id) + 1
 			if indextouse == 5003 {
 				indextouse = 5000
 			}
-			if p.random == 1 {
-				fmt.Printf("Node #%d has the token and wishes to work on critical section", p.id)
-				fmt.Println()
+			if p.hasWorkToDo {
+				log.Printf("Node #%d has the token and wishes to work on critical section\n", p.id)
 				time.Sleep(3 * time.Second)
-				fmt.Printf("Node #%d has finished their work on critical section and is sending token to node #%d", p.id, indextouse)
-				fmt.Println()
+				p.writeToCriticalSection("writing to critical section.")
+				p.hasWorkToDo = false
+				log.Printf("Node #%d has finished their work on critical section and is sending token to node #%d\n", p.id, indextouse)
 
 			} else {
-				fmt.Printf("Node #%d has the token", p.id)
-				fmt.Println()
-
+				log.Printf("Node #%d has the token\n", p.id)
 			}
 
 			time.Sleep(1 * time.Second)
@@ -141,8 +125,44 @@ func (p *peer) hasToken() {
 	}
 }
 
+func (p *peer) sendTokenToNext(index int) {
+	if p.token {
+		emptybox := token.Empty{}
+		p.clients[int32(index)].GiveToken(p.ctx, &emptybox)
+		p.token = false
+	}
+
+}
+
 func (p *peer) GiveToken(context.Context, *token.Empty) (*token.Empty, error) {
 	p.token = true
 	emptybox := &token.Empty{}
 	return emptybox, nil
+}
+
+func (p *peer) calculateIfWorkToDo() {
+	for {
+		switch p.random {
+		case 1:
+			p.hasWorkToDo = true
+			p.random = rand.Int31n(12)
+			time.Sleep(1 * time.Second)
+		default:
+			p.random = rand.Int31n(12)
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func (p *peer) writeToCriticalSection(toWrite string) {
+	f, err := os.OpenFile("CriticalSection.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	_ = err
+	log.SetOutput(f)
+
+	log.Println("Node #", p.id, " ", toWrite)
+
+	s, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	_ = err
+	log.SetOutput(s)
+
 }
