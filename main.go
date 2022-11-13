@@ -18,6 +18,7 @@ import (
 func main() {
 	f, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 	log.SetOutput(f)
+
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
 	ownPort := int32(arg1) + 5000
 	ctx, cancel := context.WithCancel(context.Background())
@@ -27,10 +28,12 @@ func main() {
 		id:            ownPort,
 		index:         int32(arg1),
 		amountOfPings: make(map[int32]int32),
-		clients:       make(map[int32]token.PingClient),
+		clients:       make(map[int32]token.ExclusionClient),
 		ctx:           ctx,
 		token:         false,
 	}
+
+	//Seeding random generator, since we got the same random results before we did this. Also making sure first node starts with token.
 	if p.id == 5000 {
 		p.token = true
 		p.random = 4
@@ -46,7 +49,7 @@ func main() {
 		log.Fatalf("Failed to listen on port: %v", err)
 	}
 	grpcServer := grpc.NewServer()
-	token.RegisterPingServer(grpcServer, p)
+	token.RegisterExclusionServer(grpcServer, p)
 
 	go func() {
 		if err := grpcServer.Serve(list); err != nil {
@@ -68,7 +71,7 @@ func main() {
 			log.Fatalf("Could not connect: %s", err)
 		}
 		defer conn.Close()
-		c := token.NewPingClient(conn)
+		c := token.NewExclusionClient(conn)
 		p.clients[port] = c
 	}
 	rand.Seed(int64(p.random))
@@ -87,11 +90,11 @@ func main() {
 }
 
 type peer struct {
-	token.UnimplementedPingServer
+	token.UnimplementedExclusionServer
 	id            int32
 	index         int32
 	amountOfPings map[int32]int32
-	clients       map[int32]token.PingClient
+	clients       map[int32]token.ExclusionClient
 	ctx           context.Context
 	token         bool
 	hasWorkToDo   bool
