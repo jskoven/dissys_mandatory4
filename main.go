@@ -102,24 +102,6 @@ func (p *peer) Ping(ctx context.Context, req *token.Request) (*token.Reply, erro
 	return rep, nil
 }
 
-func (p *peer) sendPingToAll() {
-	request := &token.Request{Id: p.id}
-
-	for id, client := range p.clients {
-		reply, err := client.Ping(p.ctx, request)
-		emptybox := token.Empty{}
-		reply2, err2 := client.GiveToken(p.ctx, &emptybox)
-		if err != nil {
-			fmt.Println("something went wrong")
-		}
-		if err2 != nil {
-			fmt.Println("token not sent correctly")
-		}
-		_ = reply2
-		fmt.Printf("Got reply from id %v: %v\n", id, reply.Amount)
-	}
-}
-
 func (p *peer) sendTokenToNext(index int) {
 	if p.token {
 		emptybox := token.Empty{}
@@ -132,22 +114,28 @@ func (p *peer) sendTokenToNext(index int) {
 func (p *peer) hasToken() {
 	for {
 		if p.token {
-			fmt.Printf("%d has the token bro", p.id)
-			fmt.Println()
 			p.random = rand.Int31n(6)
-			fmt.Printf("%d is the random number", p.random)
-			fmt.Println()
-			if p.random == 1 {
-				time.Sleep(3 * time.Second)
-				fmt.Printf("%d did their thing", p.id)
-				fmt.Println()
-			}
 			indextouse := int(p.id) + 1
 			if indextouse == 5003 {
 				indextouse = 5000
 			}
-			time.Sleep(500 * time.Millisecond)
+			if p.random == 1 {
+				fmt.Printf("Node #%d has the token and wishes to work on critical section", p.id)
+				fmt.Println()
+				time.Sleep(3 * time.Second)
+				fmt.Printf("Node #%d has finished their work on critical section and is sending token to node #%d", p.id, indextouse)
+				fmt.Println()
+
+			} else {
+				fmt.Printf("Node #%d has the token", p.id)
+				fmt.Println()
+
+			}
+
+			time.Sleep(1 * time.Second)
 			p.sendTokenToNext(indextouse)
+			//emptybox := token.Empty{}
+			//p.clients[int32(indextouse)].GiveToken(p.ctx, &emptybox)
 		}
 
 	}
