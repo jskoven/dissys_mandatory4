@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"math/rand"
 	"net"
@@ -17,7 +18,8 @@ import (
 
 func main() {
 	f, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-	log.SetOutput(f)
+	mw := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(mw)
 
 	arg1, _ := strconv.ParseInt(os.Args[1], 10, 32)
 	ownPort := int32(arg1) + 5000
@@ -145,11 +147,11 @@ func (p *peer) calculateIfWorkToDo() {
 		switch p.random {
 		case 1:
 			p.hasWorkToDo = true
-			p.random = rand.Int31n(12)
-			time.Sleep(1 * time.Second)
+			p.random = rand.Int31n(8)
+			time.Sleep(3 * time.Second)
 		default:
-			p.random = rand.Int31n(12)
-			time.Sleep(1 * time.Second)
+			p.random = rand.Int31n(8)
+			time.Sleep(3 * time.Second)
 		}
 	}
 }
@@ -162,8 +164,10 @@ func (p *peer) writeToCriticalSection(toWrite string) {
 
 	log.Println("Node #", p.id, " ", toWrite)
 
-	s, err := os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	f, err = os.OpenFile("Logs.txt", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	mw := io.MultiWriter(os.Stdout, f)
 	_ = err
-	log.SetOutput(s)
+
+	log.SetOutput(mw)
 
 }
